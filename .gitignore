@@ -6,3 +6,6 @@ out/*
 !out/.gitkeep
 # 書き出し中に作られる一時設定
 override.cfg
+
+# Python のキャッシュ
+__pycache__/
