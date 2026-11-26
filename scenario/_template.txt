@@ -62,6 +62,6 @@
 @flash 0.12
 @clear
 @bgmstop fade=0.4 nowait
+# 最後の一文を残したいときは、@clear を消して、ここに一文を書く
 @fadeout 0.8
-（最後の一文を暗転のあとに出す場合は、@fadeout の前に @textbox on を残したまま書く）
 @wait 0.8
