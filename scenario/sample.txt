@@ -5,7 +5,7 @@
 @vignette 0.8
 @bgm drone vol=-12 fade=2.0 nowait
 @title 三回目のノック dur=1.5
-@bg school_corridor_night fade=1.5
+@bg corridor_night fade=1.5
 
 夜中の二時。廊下の奥から、音がした。
 @se knock
@@ -20,11 +20,12 @@
 @se knock_once vol=3 nowait
 @shake 0.5 power=26
 @glitch 0.4 power=1.2
-@chara girl down fade=0.2
+@chara girl tilt fade=0.05
 @noise 0.55 fade=0.5 nowait
 少女「……[shake rate=18 level=8]三回目、だね[/shake]」
 
 @zoom 1.3 2.5 y=0.32 nowait
+@chara girl down fade=1.5 nowait
 @wait 2.0
 @hide girl fade=0.05
 @flash 0.12
