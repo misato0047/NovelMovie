@@ -42,6 +42,27 @@ void fragment() {
 }
 """
 
+
+const BLOOD_SHADER := """
+shader_type canvas_item;
+uniform float progress = 0.0;
+uniform vec2 grid = vec2(480.0, 270.0);
+float h(float n) { return fract(sin(n * 127.1) * 43758.5453); }
+void fragment() {
+	vec2 g = floor(UV * grid);
+	float col = floor(g.x / 2.0);
+	float r1 = h(col);
+	float r2 = h(col + 31.7);
+	float y = g.y / grid.y;
+	float len = (0.02 + pow(r1, 3.0) * 0.9) * clamp(progress * (0.5 + r2), 0.0, 1.0);
+	float band = (0.025 + h(col + 9.1) * 0.02) * clamp(progress * 4.0, 0.0, 1.0);
+	float inside = step(y, max(len, band));
+	vec3 c = vec3(0.42, 0.03, 0.03) * (0.75 + 0.25 * r2);
+	if (mod(g.x, 2.0) < 1.0 && y < max(len, band) - 0.006) { c += vec3(0.10, 0.01, 0.01); }
+	COLOR = vec4(c, inside);
+}
+"""
+
 # ---- 再生設定（台本の @speed / @autowait で変更可） ----
 var text_speed := 20.0      # 1秒あたりの文字数
 var auto_wait := 1.0        # 1行表示し終えてから次へ進むまでの待ち（秒）
@@ -75,6 +96,21 @@ var pending_voice: AudioStream = null
 var bgm_loop := false
 var fx := {"noise_amount": 0.0, "vignette": 0.0, "aberration": 0.0}
 
+var bg_fit := false          # true: 絵を横幅に収める（縦長の標準）／ false: 画面を覆う
+var blood_rect: ColorRect
+var blood_mat: ShaderMaterial
+var big_row: HBoxContainer
+var big_cells: Array = []
+var big_fs := 80
+
+# ---- 編集用の書き出し（字幕 .srt とタイミング表 .csv） ----
+var clock := 0.0
+var notext := false
+var scenario_name := "scenario"
+var cues: Array = []
+var subs: Array = []
+
+var zoom_tw: Tween
 var shake_time := 0.0
 var shake_total := 0.0
 var shake_power := 0.0
@@ -88,12 +124,17 @@ func _ready() -> void:
 	W = vs.x
 	H = vs.y
 	vertical = H > W
+	bg_fit = vertical
 	font = _load_font()
-	_build()
 	var path := DEFAULT_SCENARIO
 	for arg: String in OS.get_cmdline_user_args():
 		if arg.begins_with("--scenario="):
 			path = arg.substr(11).strip_edges().trim_prefix("\"").trim_suffix("\"")
+		if arg == "--notext":
+			notext = true
+	textbox_on = not notext
+	scenario_name = path.get_file().get_basename()
+	_build()
 	if not path.begins_with("res://") and not path.is_absolute_path():
 		path = "res://" + path
 	_run(path)
@@ -105,6 +146,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _process(delta: float) -> void:
+	clock += delta
 	if shake_time > 0.0:
 		shake_time -= delta
 		var p := shake_power * clampf(shake_time / maxf(shake_total, 0.001), 0.0, 1.0)
@@ -137,6 +179,20 @@ func _build() -> void:
 	chara_layer.size = Vector2(W, H)
 	chara_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stage.add_child(chara_layer)
+
+	# 画面の上から垂れる血
+	blood_rect = ColorRect.new()
+	var br := _img_rect()
+	blood_rect.position = br.position
+	blood_rect.size = br.size
+	blood_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var bsh := Shader.new()
+	bsh.code = BLOOD_SHADER
+	blood_mat = ShaderMaterial.new()
+	blood_mat.shader = bsh
+	blood_mat.set_shader_parameter("grid", Vector2(480, 270))
+	blood_rect.material = blood_mat
+	add_child(blood_rect)
 
 	# 画面全体にかかるノイズ・周辺減光・グリッチ
 	post = ColorRect.new()
@@ -221,6 +277,14 @@ func _build() -> void:
 	title_label.modulate.a = 0.0
 	add_child(title_label)
 
+	# 一文字ずつ変化させられる大きなタイトル（@bigtitle）
+	big_row = HBoxContainer.new()
+	big_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	big_row.add_theme_constant_override("separation", 0)
+	big_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	big_row.modulate.a = 0.0
+	add_child(big_row)
+
 	flash_rect = ColorRect.new()
 	flash_rect.size = Vector2(W, H)
 	flash_rect.color = Color.WHITE
@@ -252,11 +316,25 @@ func _build() -> void:
 
 func _make_bg() -> TextureRect:
 	var t := TextureRect.new()
-	t.size = Vector2(W, H)
 	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_apply_bg_mode(t)
 	return t
+
+
+## 絵を置く矩形。縦長の fit では、横幅いっぱい・テキスト枠の上に収める
+func _img_rect() -> Rect2:
+	if not bg_fit:
+		return Rect2(0, 0, W, H)
+	var ih := W * 9.0 / 16.0
+	return Rect2(0, H * 0.25, W, ih)
+
+
+func _apply_bg_mode(t: TextureRect) -> void:
+	var r := _img_rect()
+	t.position = r.position
+	t.size = r.size
+	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED if bg_fit else TextureRect.STRETCH_KEEP_ASPECT_COVERED
 
 
 func _load_font() -> Font:
@@ -287,6 +365,7 @@ func _run(path: String) -> void:
 			break
 		await _exec(raw)
 	await _sleep(0.5)
+	_write_outputs()
 	get_tree().quit()
 
 
@@ -301,6 +380,7 @@ func _exec(raw: String) -> void:
 		var cmd := parts[0].to_lower()
 		parts.remove_at(0)
 		var a := _parse_args(parts)
+		cues.append([clock, line])
 		if a["nowait"]:
 			_dispatch(cmd, a)
 		else:
@@ -384,9 +464,17 @@ func _dispatch(cmd: String, a: Dictionary) -> void:
 			shake_power = _kf(a, "power", 24.0) * (W / 1920.0 if not vertical else H / 1920.0)
 			await _sleep(shake_total)
 		"zoom":
-			stage.pivot_offset = Vector2(W * _kf(a, "x", 0.5), H * _kf(a, "y", 0.5))
+			var zr := _img_rect()
+			stage.pivot_offset = zr.position + Vector2(zr.size.x * _kf(a, "x", 0.5), zr.size.y * _kf(a, "y", 0.5))
 			var s := _pf(a, 0, 1.0)
-			await _tween(stage, "scale", Vector2(s, s), _pf(a, 1, 1.0))
+			var zd := _pf(a, 1, 1.0)
+			_stop_zoom()
+			if zd <= 0.0:
+				stage.scale = Vector2(s, s)
+			else:
+				zoom_tw = create_tween()
+				zoom_tw.tween_property(stage, "scale", Vector2(s, s), zd).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+				await zoom_tw.finished
 		"noise":
 			await _tween_param("noise_amount", _pf(a, 0, 0.0), _kf(a, "fade", 0.0))
 		"vignette":
@@ -421,7 +509,7 @@ func _dispatch(cmd: String, a: Dictionary) -> void:
 			await _sleep(_kf(a, "dur", 2.0))
 			await _tween(title_label, "modulate:a", 0.0, 0.8)
 		"textbox":
-			textbox_on = _p(a, 0, "on") != "off"
+			textbox_on = _p(a, 0, "on") != "off" and not notext
 			textbox.visible = textbox_on and body.text != ""
 			name_label.visible = textbox.visible and name_label.text != ""
 		"clear":
@@ -433,6 +521,55 @@ func _dispatch(cmd: String, a: Dictionary) -> void:
 			text_speed = maxf(_pf(a, 0, 20.0), 1.0)
 		"autowait":
 			auto_wait = _pf(a, 0, 1.0)
+		"static":
+			# ノイズが走る。to= を付けると、ノイズの真ん中で背景を切り替える
+			var sd := _pf(a, 0, 0.5)
+			var pw := _kf(a, "power", 1.0)
+			post_mat.set_shader_parameter("noise_amount", 1.5 * pw)
+			post_mat.set_shader_parameter("glitch", 1.6 * pw)
+			post_mat.set_shader_parameter("aberration", 3.0 * pw)
+			await _sleep(sd * 0.5)
+			if _k(a, "to") != "":
+				var tex := _load_tex("res://assets/bg/" + _k(a, "to"), "bg")
+				bg_a.texture = tex
+				bg_b.texture = tex
+				bg_b.modulate.a = 0.0
+				_stop_zoom()
+				stage.scale = Vector2.ONE
+				for n in charas.keys():
+					(charas[n] as Node).queue_free()
+				charas.clear()
+			await _sleep(sd * 0.5)
+			post_mat.set_shader_parameter("noise_amount", fx["noise_amount"])
+			post_mat.set_shader_parameter("glitch", 0.0)
+			post_mat.set_shader_parameter("aberration", fx["aberration"])
+		"cut":
+			# 背景を一瞬で切り替える（ズームも元に戻す）
+			bg_a.texture = _load_tex("res://assets/bg/" + _p(a, 0, "black"), "bg")
+			bg_b.modulate.a = 0.0
+			_stop_zoom()
+			stage.scale = Vector2.ONE
+		"blood":
+			if _p(a, 0) == "off":
+				await _tween(blood_rect, "modulate:a", 0.0, _kf(a, "fade", 0.5))
+				blood_mat.set_shader_parameter("progress", 0.0)
+				blood_rect.modulate.a = 1.0
+			else:
+				var btw := create_tween()
+				btw.tween_method(func(v: float) -> void: blood_mat.set_shader_parameter("progress", v), 0.0, 1.0, _pf(a, 0, 2.0))
+				await btw.finished
+		"bgmode":
+			bg_fit = _p(a, 0, "fit") == "fit"
+			_apply_bg_mode(bg_a)
+			_apply_bg_mode(bg_b)
+		"bigtitle":
+			await _big_show(" ".join(PackedStringArray(a["pos"])), _kf(a, "fade", 1.0))
+		"bigtitle_swap":
+			await _big_swap(_p(a, 0), _p(a, 1), _k(a, "color"), _kf(a, "dur", 0.6))
+		"bigtitle_drop":
+			await _big_drop(_p(a, 0), _kf(a, "dur", 1.0))
+		"bigtitle_hide":
+			await _tween(big_row, "modulate:a", 0.0, _kf(a, "fade", 1.0))
 		"end":
 			stopped = true
 		_:
@@ -461,7 +598,10 @@ func _show_line(speaker: String, text: String) -> void:
 	textbox.visible = textbox_on
 	body.text = text
 	body.visible_characters = 0
-	var total := tag_re.sub(text, "", true).length()
+	var plain := tag_re.sub(text, "", true)
+	var total := plain.length()
+	var t_start := clock
+	cues.append([clock, (speaker + plain) if speaker != "" else plain])
 	var v := pending_voice
 	pending_voice = null
 	if v != null:
@@ -472,6 +612,7 @@ func _show_line(speaker: String, text: String) -> void:
 	if v != null and voice.playing:
 		await voice.finished
 	await _sleep(auto_wait + total * per_char_wait)
+	subs.append([t_start, clock, plain])
 
 
 # =====================================================================
@@ -696,3 +837,121 @@ func _tween_param(param: String, to: float, dur: float) -> void:
 	var tw := create_tween()
 	tw.tween_method(func(v: float) -> void: post_mat.set_shader_parameter(param, v), from, to, dur)
 	await tw.finished
+
+
+# =====================================================================
+# 大きなタイトル（一文字ずつ差し替え・消去できる）
+# =====================================================================
+
+func _big_text() -> String:
+	var t := ""
+	for c in big_cells:
+		t += (c[1] as Label).text
+	return t
+
+
+func _big_cell_size(ch: String) -> Vector2:
+	var sz := font.get_string_size(ch, HORIZONTAL_ALIGNMENT_LEFT, -1, big_fs)
+	return Vector2(sz.x, big_fs * 1.4)
+
+
+func _big_show(text: String, fade: float) -> void:
+	for c in big_cells:
+		(c[0] as Node).queue_free()
+	big_cells.clear()
+	big_fs = int(minf(fs * 2.2, W * 0.88 / maxf(1.0, float(text.length()))))
+	big_row.position = Vector2(0, H * 0.5 - big_fs * 0.7)
+	big_row.size = Vector2(W, big_fs * 1.4)
+	for i in range(text.length()):
+		var ch := text.substr(i, 1)
+		var lab := Label.new()
+		lab.text = ch
+		lab.add_theme_font_override("font", font)
+		lab.add_theme_font_size_override("font_size", big_fs)
+		lab.add_theme_color_override("font_color", Color(0.9, 0.88, 0.85))
+		lab.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 1))
+		lab.add_theme_constant_override("shadow_offset_x", 3)
+		lab.add_theme_constant_override("shadow_offset_y", 3)
+		var cell := Control.new()
+		cell.clip_contents = true
+		cell.custom_minimum_size = _big_cell_size(ch)
+		cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		cell.add_child(lab)
+		big_row.add_child(cell)
+		big_cells.append([cell, lab])
+	big_row.modulate.a = 0.0
+	await _tween(big_row, "modulate:a", 1.0, fade)
+
+
+func _big_swap(from: String, to: String, col: String, dur: float) -> void:
+	var idx := _big_text().find(from)
+	if idx < 0 or from == "":
+		_notice("タイトルに見つかりません: " + from)
+		return
+	post_mat.set_shader_parameter("glitch", 1.3)
+	var steps := 7
+	for st in range(steps):
+		for i in range(from.length()):
+			var lab: Label = big_cells[idx + i][1]
+			var nw := to.substr(i, 1) if i < to.length() else ""
+			lab.text = nw if st % 2 == 0 else from.substr(i, 1)
+		await _sleep(dur / steps)
+	for i in range(from.length()):
+		var lab: Label = big_cells[idx + i][1]
+		var cell: Control = big_cells[idx + i][0]
+		lab.text = to.substr(i, 1) if i < to.length() else ""
+		cell.custom_minimum_size = _big_cell_size(lab.text)
+		if col != "":
+			lab.add_theme_color_override("font_color", Color.from_string(col, Color.RED))
+	post_mat.set_shader_parameter("glitch", 0.0)
+
+
+func _big_drop(chars: String, dur: float) -> void:
+	var idx := _big_text().find(chars)
+	if idx < 0 or chars == "":
+		_notice("タイトルに見つかりません: " + chars)
+		return
+	var tw := create_tween().set_parallel(true)
+	for i in range(chars.length()):
+		tw.tween_property(big_cells[idx + i][1], "modulate:a", 0.0, dur)
+	await tw.finished
+	var tw2 := create_tween().set_parallel(true)
+	for i in range(chars.length()):
+		tw2.tween_property(big_cells[idx + i][0], "custom_minimum_size:x", 0.0, 0.8).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	await tw2.finished
+	for i in range(chars.length() - 1, -1, -1):
+		(big_cells[idx + i][0] as Node).queue_free()
+		big_cells.remove_at(idx + i)
+
+
+# =====================================================================
+# 編集用ファイルの書き出し（out/台本名_16x9.srt と _cues.csv）
+# =====================================================================
+
+func _tc(t: float, sep: String = ",") -> String:
+	var ms := int(round(t * 1000.0))
+	return "%02d:%02d:%02d%s%03d" % [ms / 3600000, (ms / 60000) % 60, (ms / 1000) % 60, sep, ms % 1000]
+
+
+func _write_outputs() -> void:
+	var dir := ProjectSettings.globalize_path("res://out")
+	DirAccess.make_dir_recursive_absolute(dir)
+	var base := dir.path_join(scenario_name + ("_9x16" if vertical else "_16x9"))
+	var f := FileAccess.open(base + ".srt", FileAccess.WRITE)
+	if f != null:
+		for i in range(subs.size()):
+			var e: Array = subs[i]
+			f.store_string("%d\n%s --> %s\n%s\n\n" % [i + 1, _tc(e[0]), _tc(e[1]), e[2]])
+		f.close()
+	var c := FileAccess.open(base + "_cues.csv", FileAccess.WRITE)
+	if c != null:
+		c.store_string("\ufeff秒,タイムコード,内容\n")
+		for e: Array in cues:
+			c.store_string("%.3f,%s,\"%s\"\n" % [e[0], _tc(e[0], "."), str(e[1]).replace("\"", "\"\"")])
+		c.close()
+
+
+func _stop_zoom() -> void:
+	if zoom_tw != null and zoom_tw.is_valid():
+		zoom_tw.kill()
+		zoom_tw.finished.emit()

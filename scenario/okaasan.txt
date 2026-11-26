@@ -1,0 +1,168 @@
+# ============================================================
+#  タイトル：私のお母さんは変わり者
+#  形式：横長・縦長の両方／無音（声と効果音は動画ソフトで入れる）
+#  教室（セピア）＝作文を読む「いま」／洋館（青）＝お母さんの正体
+# ============================================================
+
+@speed 12
+@autowait 1.4
+@noise 0.18
+@vignette 0.7
+
+# ---- 教室：作文を読む女の子 ----------------------------------
+@fadeout 0
+@cut oka_class_read
+@fadein 1.5
+@wait 0.6
+「私のお母さんは、変わっています」
+@clear
+
+# 廃れた洋館の外観（森の中、昼だが薄暗い）
+@static 0.5 to=oka_mansion_day
+@zoom 1.08 3.5 nowait
+@wait 3.2
+
+@static 0.4 to=oka_class_read
+@wait 0.4
+「私のお母さんは、とても肌が白いです」
+@clear
+
+# 青白い素足と白い着物
+@static 0.5 to=oka_feet
+@wait 2.8
+
+@static 0.4 to=oka_class_read
+@wait 0.4
+「私のお母さんは、とても背が高いです」
+@clear
+
+# 天井に頭がつきそうな母が廊下を歩いてくる
+@static 0.5 to=oka_hall_mother
+@zoom 1.18 3.5 y=0.28 nowait
+@wait 3.4
+
+@static 0.4 to=oka_class_read
+@wait 0.4
+「私のお母さんは、とても髪が長いです」
+@clear
+
+# ---- 洋館：お母さんの正体（ここから女の子は声だけ） --------------
+# 床まで届く髪。二人を引きずって廊下の奥へ
+@static 0.5 to=oka_drag
+@zoom 1.12 5 y=0.6 nowait
+@wait 1.2
+いつも、お気に入りの包丁で料理をしています
+@clear
+
+# 後ろ姿で何かを切っている。赤い飛沫
+@cut oka_chop_down
+@shake 0.25 power=12 nowait
+@wait 0.7
+@cut oka_chop_up
+@wait 0.4
+@cut oka_chop_down
+@shake 0.25 power=12 nowait
+@wait 0.7
+# 再び振り上げて、止まる
+@cut oka_chop_up
+@wait 1.0
+お母さんは、とても耳がいいです
+@clear
+@wait 0.8
+# 体は後ろを向いたまま、頭だけが180度回る
+@cut oka_chop_turn90
+@wait 0.18
+@cut oka_chop_turn180
+@glitch 0.25 power=0.8
+@wait 1.6
+
+# 窓の外に、懐中電灯の光がいくつも
+@cut oka_window
+@wait 1.4
+だから、うるさいのが大嫌いです
+@clear
+
+# 洋館を指差し、スマートフォンで撮影して笑う男二人
+@cut oka_men
+@wait 2.4
+
+# 暗闇から、一瞬で
+@cut oka_lunge_far
+@wait 1.2
+@cut oka_lunge
+@flash 0.08 color=#c42020 nowait
+@shake 0.6 power=40 nowait
+@zoom 1.25 0.25 y=0.4
+@blood 1.8
+@wait 0.8
+@fadeout 0.8
+@blood off fade=0
+@wait 0.6
+
+# 二人を引きずって、玄関から入ってくる母
+@cut oka_entrance
+@fadein 1.2
+でも、私にはとっても優しいお母さんです
+@clear
+
+# 柱時計は15時45分
+@cut oka_clock
+@zoom 1.15 3 nowait
+@wait 1.0
+私とお母さんは、血が繋がっていません
+@clear
+
+# ---- 教室に戻る ----------------------------------------------
+@static 0.5 to=oka_class_read
+@wait 0.4
+「それでも私は、お母さんが世界で一番大好きです」
+@clear
+@wait 0.4
+# 先生が拍手をしている
+@cut oka_class_clap1
+@wait 0.25
+@cut oka_class_clap2
+@wait 0.25
+@cut oka_class_clap1
+@wait 0.25
+@cut oka_class_clap2
+@wait 0.25
+@cut oka_class_clap1
+@wait 0.25
+@cut oka_class_clap2
+@wait 0.25
+@cut oka_class_clap1
+@wait 0.25
+@cut oka_class_clap2
+@wait 0.6
+@fadeout 1.2
+
+# ---- 夕方の洋館 ----------------------------------------------
+@noise 0.12
+@cut oka_mansion_dusk
+@fadein 1.5
+@wait 2.2
+# 赤いスープ、サラダ、きれいに切られたお肉、ご飯。向かいで微笑む母
+@bg oka_dining fade=1.2
+@wait 3.2
+# テーブルの下：新聞にくるまれた腕と脚が、バケツに縦に入っている
+@bg oka_under fade=0.8
+@zoom 1.12 3.5 y=0.5 nowait
+@wait 3.5
+@fadeout 1.5
+
+# ---- タイトル：「変わり者」が「化物」になる -----------------------
+@cut black
+@noise 0.12
+@fadein 0
+@wait 0.5
+@bigtitle 私のお母さんは変わり者 fade=1.5
+@wait 1.6
+@bigtitle_swap 変 化 color=#c42020 dur=0.6
+@wait 0.6
+@bigtitle_swap 者 物 color=#c42020 dur=0.6
+@wait 0.8
+@bigtitle_drop わり dur=1.2
+@wait 3.5
+@bigtitle_hide fade=1.5
+@wait 0.8
