@@ -122,6 +122,8 @@ func _build() -> void:
 	stage.size = Vector2(W, H)
 	stage.pivot_offset = Vector2(W, H) / 2.0
 	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# ドット絵をくっきり表示（拡大してもぼやけない）。背景と立ち絵はすべてこの設定を引き継ぐ
+	stage.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	add_child(stage)
 
 	bg_a = _make_bg()
