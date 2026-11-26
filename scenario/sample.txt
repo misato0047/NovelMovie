@@ -5,7 +5,7 @@
 @vignette 0.8
 @bgm drone vol=-12 fade=2.0 nowait
 @title 三回目のノック dur=1.5
-@bg corridor_night fade=1.5
+@bg school_corridor_night fade=1.5
 
 夜中の二時。廊下の奥から、音がした。
 @se knock
