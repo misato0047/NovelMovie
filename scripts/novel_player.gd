@@ -127,6 +127,11 @@ func _ready() -> void:
 	bg_fit = vertical
 	font = _load_font()
 	var path := DEFAULT_SCENARIO
+	# エディタの NovelMovie パネルで選んだ台本と設定
+	var cf := ConfigFile.new()
+	if cf.load("res://.run_settings.cfg") == OK:
+		path = str(cf.get_value("run", "scenario", path))
+		notext = bool(cf.get_value("run", "notext", false))
 	for arg: String in OS.get_cmdline_user_args():
 		if arg.begins_with("--scenario="):
 			path = arg.substr(11).strip_edges().trim_prefix("\"").trim_suffix("\"")

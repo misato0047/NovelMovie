@@ -9,3 +9,6 @@ override.cfg
 
 # Python のキャッシュ
 __pycache__/
+
+# エディタのパネルが作る再生設定
+.run_settings.cfg
