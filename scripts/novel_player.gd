@@ -96,6 +96,7 @@ var pending_voice: AudioStream = null
 var bgm_loop := false
 var fx := {"noise_amount": 0.0, "vignette": 0.0, "aberration": 0.0}
 
+var base_res := Vector2i(320, 180)   # 絵の基準解像度（formats/style.cfg で変更）
 var bg_fit := false          # true: 絵を横幅に収める（縦長の標準）／ false: 画面を覆う
 var blood_rect: ColorRect
 var blood_mat: ShaderMaterial
@@ -126,6 +127,7 @@ func _ready() -> void:
 	vertical = H > W
 	bg_fit = vertical
 	font = _load_font()
+	_load_style()
 	var path := DEFAULT_SCENARIO
 	# エディタの NovelMovie パネルで選んだ台本と設定
 	var cf := ConfigFile.new()
@@ -195,7 +197,7 @@ func _build() -> void:
 	bsh.code = BLOOD_SHADER
 	blood_mat = ShaderMaterial.new()
 	blood_mat.shader = bsh
-	blood_mat.set_shader_parameter("grid", Vector2(480, 270))
+	blood_mat.set_shader_parameter("grid", Vector2(base_res))
 	blood_rect.material = blood_mat
 	add_child(blood_rect)
 
@@ -327,12 +329,20 @@ func _make_bg() -> TextureRect:
 	return t
 
 
-## 絵を置く矩形。縦長の fit では、横幅いっぱい・テキスト枠の上に収める
+## 絵を置く矩形。縦長の fit では、テキスト枠の上に「整数倍」で収める（ドットの大きさをそろえるため）
 func _img_rect() -> Rect2:
 	if not bg_fit:
 		return Rect2(0, 0, W, H)
-	var ih := W * 9.0 / 16.0
-	return Rect2(0, H * 0.25, W, ih)
+	var k := maxi(1, int(floor(W / float(base_res.x))))
+	var sz := Vector2(base_res.x * k, base_res.y * k)
+	return Rect2((W - sz.x) / 2.0, H * 0.25, sz.x, sz.y)
+
+
+## formats/style.cfg から、絵の基準解像度を読む（ドット絵の1ドット＝画面の何px か の基準）
+func _load_style() -> void:
+	var cf := ConfigFile.new()
+	if cf.load("res://formats/style.cfg") == OK:
+		base_res = Vector2i(int(cf.get_value("pixel", "base_width", 320)), int(cf.get_value("pixel", "base_height", 180)))
 
 
 func _apply_bg_mode(t: TextureRect) -> void:
